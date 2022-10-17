@@ -1,0 +1,918 @@
+#include <NewPing.h>
+#include <SoftwareSerial.h>
+#include <Wire.h>
+
+#define TRIGGER_PIN A5
+#define ECHO_PIN A4
+#define MAX_DISTANCE 200 
+
+//#define TRIGGER2_PIN A6
+//#define ECHO2_PIN A7
+//#define MAX2_DISTANCE 200 
+
+int PIRSensor = A1;//監控用
+int PWM1 = 2;
+int INA1 = 3;
+int INB1 = 4;
+int PWM2 = 5;
+int INA2 = 6;
+int INB2 = 7;
+
+int INA3 = 12;
+int INB3 = 13;
+
+#define INTERVAL_MESSAGE1 7000
+#define INTERVAL_MESSAGE2 11000
+
+unsigned long time_1 = 0;
+unsigned long time_2 = 0;
+
+SoftwareSerial BT(10,11);
+char BTstatus;
+
+int sensorValue = 0;
+//int sensorValue2 = 0;
+
+NewPing sonar(TRIGGER_PIN,ECHO_PIN,MAX_DISTANCE);
+//NewPing sonar2(TRIGGER2_PIN,ECHO2_PIN,MAX2_DISTANCE);
+
+void setup() {
+  pinMode(PWM1, OUTPUT);
+  pinMode(INA1, OUTPUT);
+  pinMode(INB1, OUTPUT);
+  pinMode(PWM2, OUTPUT);
+  pinMode(INA2, OUTPUT);
+  pinMode(INB2, OUTPUT);
+  pinMode(INA3, OUTPUT);
+  pinMode(INB3, OUTPUT);
+  
+  Serial.begin(9600);
+  BT.begin(9600);
+  pinMode(A1, INPUT);
+  pinMode(A2, INPUT);
+  pinMode(A3, INPUT);
+
+  
+
+}
+
+void loop() {
+
+  Serial.print("\nPING:"); //超音波讀值
+  Serial.print(sonar.ping_cm());
+  Serial.print("cm");
+//  Serial.print("\nPING2:"); //超音波讀值
+//  Serial.print(sonar2.ping_cm());
+//  Serial.print("cm");
+
+  if (BT.available()){
+    BTstatus=BT.read();
+    Serial.println(BTstatus);  
+  }
+
+  switch(BTstatus){
+    case'r':
+    line_follow();
+    case'a':
+    mission_A1();
+    break;
+    case'b':
+    mission_A2();
+    break;
+    case'c':
+    mission_A3();
+    break;
+    case'd':
+    mission_B1();
+    break;
+    case'e':
+    mission_B2();
+    break;
+    case'f':
+    mission_C1();
+    break;
+    case'g':
+    mission_C2();
+    break;
+    case's':
+    mission_stop();
+    break;
+    case'p':
+    mission_update();
+    break;
+    case'i':
+    mission_up();
+    break;
+    case'h':
+    mission_down();
+    break;
+  }
+
+}
+
+void line_follow(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20  ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------任務接收
+//  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+//  digitalWrite(INA1, LOW);//右輪正轉
+//  digitalWrite(INA2, LOW);//左輪正轉
+//  digitalWrite(INB1, LOW); //右輪反轉
+//  digitalWrite(INB2, LOW); //左輪反轉
+//  analogWrite(PWM1, 50);  //PWM调速
+//  analogWrite(PWM2, 50);  //PWM调速
+//  delay(300);  
+//  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, HIGH);
+  }
+  }
+}
+
+void mission_A1(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, HIGH); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+}
+
+void mission_A2(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 50);  //PWM调速
+  analogWrite(PWM2, 50);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, HIGH); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, HIGH);
+  digitalWrite(INB3, LOW);
+  }  
+  }
+}
+void mission_A3(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, HIGH); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, HIGH);
+  } 
+  }
+}
+void mission_B1(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, HIGH); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, HIGH);
+  digitalWrite(INB3, LOW);
+  }  
+  }
+}
+void mission_B2(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, HIGH); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, HIGH);
+  }  
+  }
+}
+void mission_C1(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20  ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+}
+void mission_C2(){
+  byte IR_R = digitalRead(A1);
+  byte IR_MID = digitalRead(A2);
+  byte IR_L = digitalRead(A3);
+  //-------------------------------------------直走
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右轉
+  if (IR_L == 0 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------左轉
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 0 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------右直角
+  if (IR_L == 0 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------左直角
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 0 && sonar.ping_cm() >20){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------二岔路
+  if (IR_L == 1 && IR_MID == 0 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(300);  
+  }
+  //-------------------------------------------三岔路
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20 ){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, HIGH); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+  delay(500);  
+  }
+  //-------------------------------------------任務停車點
+  if (IR_L == 1 && IR_MID == 1 &&IR_R == 1 && sonar.ping_cm() >20  ){
+  
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+     
+  if(millis() > time_1 + INTERVAL_MESSAGE1){
+  time_1 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉 
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  }
+  if(millis() > time_2 + INTERVAL_MESSAGE2){
+  time_2 = millis();
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, HIGH);
+  digitalWrite(INB3, LOW);
+  }
+  }
+}
+void mission_stop(){
+  digitalWrite(INA1, LOW);//右輪正轉
+  digitalWrite(INA2, LOW);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, LOW);
+  analogWrite(PWM1, 255);  //PWM调速`
+  analogWrite(PWM2, 255);  //PWM调速
+}
+void mission_update(){
+  digitalWrite(INA1, HIGH);//右輪正轉
+  digitalWrite(INA2, HIGH);//左輪正轉
+  digitalWrite(INB1, LOW); //右輪反轉
+  digitalWrite(INB2, LOW); //左輪反轉
+  analogWrite(PWM1, 255);  //PWM调速
+  analogWrite(PWM2, 255);  //PWM调速
+}
+void mission_down(){
+  digitalWrite(INA3, HIGH);
+  digitalWrite(INB3, LOW);
+  //analogWrite(PWM3, 255);  //PWM调速
+  delay(300);
+   }
+void mission_up(){
+  digitalWrite(INA3, LOW);
+  digitalWrite(INB3, HIGH);
+  //analogWrite(PWM3, 255);  //PWM调速
+  delay(300);
+ }
